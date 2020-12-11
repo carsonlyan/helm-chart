@@ -1,0 +1,129 @@
+{{ if .Values.components.hdfs }}
+{{ range $index := until (.Values.hdfs.dn.scale|int) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: hdfs-dn-{{ $index }}
+  labels:
+    component: hdfs-dn
+spec:
+  ports:
+    - name: dfs
+      port: 8020
+      protocol: TCP
+    - name: webhdfs
+      port: 50075
+  selector:
+    statefulset.kubernetes.io/pod-name: hdfs-dn-{{ $index }}
+---
+{{ end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: hdfs-dn
+  labels:
+    component: hdfs-dn
+spec:
+  ports:
+    - name: dfs
+      port: 8020
+      protocol: TCP
+    - name: webhdfs
+      port: 50075
+  selector:
+    component: hdfs-dn
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: hdfs-dn
+spec:
+  podManagementPolicy: Parallel
+  serviceName: hdfs-dn  
+  replicas: {{ .Values.hdfs.dn.scale }}
+  selector:
+    matchLabels:
+      component: hdfs-dn
+  template:
+    metadata:
+      labels:
+        component: hdfs-dn
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: component
+                      operator: In
+                      values:
+                        - hdfs-dn
+                topologyKey: kubernetes.io/hostname
+      terminationGracePeriodSeconds: 60
+      tolerations:
+        - key: scale
+          operator: Exists
+          effect: NoSchedule      
+{{ if .Values.nodeGroupLabel }}
+      nodeSelector:
+        {{ .Values.nodeGroupLabel }}: hdfs
+{{ end }}      
+      imagePullSecrets:
+      - name: {{ .Values.registry.secret.name }}
+      containers:
+        - name: hdfs-dn
+          image: {{ .Values.registry.repository }}/{{ .Values.imageSparkCommon }}:{{ .Values.imageTag }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          command:
+            - "/bin/bash"
+            - "/tmp/hadoop-config/bootstrap.sh"
+            - "-d"
+{{ if .Values.defineResources }}            
+          resources:
+            requests:
+              memory: "1024Mi"
+              cpu: "100m"
+            limits:
+              # memory: "2048Mi"
+              cpu: "1000m"
+{{ end }}              
+          env:
+            - name: BOOTSTRAP
+              value: hdfs-dn
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 50075
+            initialDelaySeconds: 5
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 50075
+            initialDelaySeconds: 10
+            timeoutSeconds: 2
+          volumeMounts:
+            - name: scale-config
+              mountPath: /tmp/hadoop-config
+{{ if .Values.hdfs.pvcClass }}            
+            - name: dfs
+              mountPath: /root/hdfs/datanode
+{{ end }}              
+      volumes:
+        - name: scale-config
+          configMap:
+            name: scale-config
+{{ if .Values.hdfs.pvcClass }}
+  volumeClaimTemplates:
+    - metadata:
+        name: dfs
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: {{ .Values.hdfs.pvcClass }}
+        resources:
+          requests:
+            storage: {{ .Values.hdfs.dn.size }}  
+{{ end }}
+{{ end }}

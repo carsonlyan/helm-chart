@@ -1,0 +1,13 @@
+{{ if .Values.registry.secret.password }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.registry.secret.name }}
+type: kubernetes.io/dockerconfigjson
+data:
+  {{- $url := .Values.registry.url | quote }}
+  {{- $user := .Values.registry.secret.user | quote }}
+  {{- $password := .Values.registry.secret.password | quote }}
+  {{- $auth := (printf "%s:%s" .Values.registry.secret.user .Values.registry.secret.password) | b64enc | quote }}
+  .dockerconfigjson: {{ (printf "{\"auths\":{%s:{\"username\":%s,\"password\":%s,\"auth\":%s}}}" $url $user $password $auth) | b64enc }}
+{{- end }}

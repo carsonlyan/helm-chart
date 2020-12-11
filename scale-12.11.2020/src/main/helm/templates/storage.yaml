@@ -1,0 +1,29 @@
+{{ if eq .Values.kubernetesType "aws" }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: efs-storage-claim
+  annotations:
+    volume.beta.kubernetes.io/storage-class: aws-efs
+spec:
+  storageClassName: aws-efs
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Mi
+{{ else if eq .Values.kubernetesType "saic" }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: saic-storage-claim
+  annotations:
+    volume.beta.kubernetes.io/storage-class: csi-cephfs-sc
+spec:
+  storageClassName: csi-cephfs-sc
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Mi
+{{ end }}

@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sparkmaster
+  labels:
+    component: sparkmaster
+    workerGroup: main
+spec:
+  type: ClusterIP
+  ports:
+  - port: 7077
+    name: spark  
+  - port: 8080
+    name: web
+  selector:
+    component: sparkmaster
+    workerGroup: main
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: sparkmaster
+spec:
+  serviceName: sparkmaster
+  replicas: 1
+  selector:
+    matchLabels:
+      component: sparkmaster
+      workerGroup: main
+  template:
+    metadata:
+      labels:
+        component: sparkmaster
+        workerGroup: main
+    spec:
+      terminationGracePeriodSeconds: 0
+      tolerations:
+        - key: scale
+          operator: Exists
+          effect: NoSchedule          
+{{ if .Values.nodeGroupLabel }}
+      nodeSelector:
+        {{ .Values.nodeGroupLabel }}: core
+{{ end }}      
+      imagePullSecrets:
+      - name: {{ .Values.registry.secret.name }}      
+      containers:
+      - name: sparkmaster
+        image: {{ .Values.registry.repository }}/{{ .Values.imageSparkCommon }}:{{ .Values.imageTag }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        ports:
+        - containerPort: 8080
+          name: web
+        command:
+           - "/bin/bash"
+           - "/tmp/hadoop-config/bootstrap.sh"
+           - "-d"
+{{ if .Values.defineResources }}
+        resources:
+          requests:
+            memory: "1024Mi"
+            cpu: "1500m"
+{{ end }}            
+        # readinessProbe:
+        #   httpGet:
+        #     path: /ws/v1/cluster/info
+        #     port: 8080
+        #   initialDelaySeconds: 5
+        #   timeoutSeconds: 2
+        # livenessProbe:
+        #   httpGet:
+        #     path: /ws/v1/cluster/info
+        #     port: 8080
+        #   initialDelaySeconds: 10
+        #   timeoutSeconds: 2
+        volumeMounts:
+          - name: scale-config
+            mountPath: /tmp/hadoop-config
+      volumes:
+        - name: scale-config
+          configMap:
+            name: scale-config

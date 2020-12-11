@@ -1,0 +1,127 @@
+{{ if .Values.components.gitea }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitea
+  labels:
+    component: gitea
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3000
+    name: web
+  - port: 22
+    name: ssh
+  selector:
+    component: gitea
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: gitea
+spec:
+  podManagementPolicy: Parallel
+  serviceName: gitea
+  selector:
+    matchLabels:
+      component: gitea  
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        component: gitea
+    spec:
+      terminationGracePeriodSeconds: 0
+      tolerations:
+        - key: scale
+          operator: Exists
+          effect: NoSchedule      
+{{ if .Values.nodeGroupLabel }}
+      nodeSelector:
+        {{ .Values.nodeGroupLabel }}: core
+{{ end }}
+{{ if .Values.registry.publicImagesSecretNeeded }}
+      imagePullSecrets:
+      - name: {{ .Values.registry.secret.name }}
+{{ end }}      
+      containers:
+      - name: gitea
+        image: {{ .Values.gitea.image.registry }}/{{ .Values.gitea.image.repository }}:{{ .Values.gitea.image.version }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        env:
+          - name: APP_NAME
+            value: Scale Gitea
+          - name: SSH_DOMAIN
+            value: gitea.{{ .Values.ingress.domain }}
+          - name: HTTP_PORT
+            value: "3000"
+          - name: ROOT_URL
+            value: http://gitea.{{ .Values.ingress.domain }}/
+          - name: DB_TYPE
+            value: mysql
+          - name: DB_USER
+            value: gitea
+          - name: DB_PASSWD
+            value: changeme
+{{ if .Values.defineResources }}            
+        resources:
+          requests:
+            memory: "1024Mi"
+            cpu: "200m"
+          limits:
+            # memory: "4096Mi"
+            cpu: "2000m"
+{{ end }}            
+        volumeMounts:
+          - name: gitea-data
+            mountPath: /data        
+      - name: gitea-db
+        image: {{ .Values.mariadb.image.registry }}/{{ .Values.mariadb.image.repository }}:{{ .Values.mariadb.image.version }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+{{ if .Values.defineResources }}
+        resources:
+          requests:
+            memory: "1024Mi"
+            cpu: "200m"
+          limits:
+            # memory: "4096Mi"
+            cpu: "2000m"
+{{ end }}            
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            value: changeme
+          - name:  MYSQL_DATABASE
+            value: gitea
+          - name: MYSQL_USER
+            value: gitea
+          - name: MYSQL_PASSWORD
+            value: changeme
+        volumeMounts:
+          - name: gitea-db
+            mountPath: /var/lib/mysql
+{{ if .Values.gitea.pv.class }}
+  volumeClaimTemplates:
+    - metadata:
+        name: gitea-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: {{ .Values.gitea.pv.class }}
+        resources:
+          requests:
+            storage: {{ .Values.gitea.pv.sizeData }}
+    - metadata:
+        name: gitea-db
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: {{ .Values.gitea.pv.class }}
+        resources:
+          requests:
+            storage: {{ .Values.gitea.pv.sizeDb }}
+{{ else }}            
+      volumes:
+        - name: gitea-data
+          emptyDir: {}
+        - name: gitea-db
+          emptyDir: {}
+{{ end }}
+{{ end }}

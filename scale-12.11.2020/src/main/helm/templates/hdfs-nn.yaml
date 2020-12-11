@@ -1,0 +1,111 @@
+{{ if .Values.components.hdfs }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: hdfs-nn
+  labels:
+    component: hdfs-nn
+spec:
+  type: ClusterIP
+  ports:
+  - name: webhdfs
+    port: 50070 
+  - name: data
+    port: 9000    
+  selector:
+    component: hdfs-nn
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hdfs-nn-0
+  labels:
+    component: hdfs-nn
+spec:
+  type: ClusterIP
+  ports:
+  - name: webhdfs
+    port: 50070 
+  - name: data
+    port: 9000    
+  selector:
+    statefulset.kubernetes.io/pod-name: hdfs-nn-0
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: hdfs-nn
+spec:
+  serviceName: hdfs-nn
+  replicas: 1
+  selector:
+    matchLabels:
+      component: hdfs-nn
+  template:
+    metadata:
+      labels:
+        component: hdfs-nn
+    spec:
+      terminationGracePeriodSeconds: 0
+      tolerations:
+        - key: scale
+          operator: Exists
+          effect: NoSchedule      
+{{ if .Values.nodeGroupLabel }}
+      nodeSelector:
+        {{ .Values.nodeGroupLabel }}: hdfs
+{{ end }}
+      imagePullSecrets:
+      - name: {{ .Values.registry.secret.name }}
+      containers:
+      - name: hdfs-nn
+        image: {{ .Values.registry.repository }}/{{ .Values.imageSparkCommon }}:{{ .Values.imageTag }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        command:
+           - "/bin/bash"
+           - "/tmp/hadoop-config/bootstrap.sh"
+           - "-d"
+{{ if .Values.defineResources }}                       
+        resources:
+          requests:
+            memory: "1024Mi"
+            cpu: "100m"
+          limits:
+            # memory: "2048Mi"
+            cpu: "1000m"
+{{ end }}            
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 50070
+          initialDelaySeconds: 5
+          timeoutSeconds: 2
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 50070
+          initialDelaySeconds: 10
+          timeoutSeconds: 2
+        volumeMounts:
+          - name: scale-config
+            mountPath: /tmp/hadoop-config
+{{ if .Values.hdfs.pvcClass }}
+          - name: dfs
+            mountPath: /root/hdfs/namenode            
+{{ end }}            
+      volumes:
+        - name: scale-config
+          configMap:
+            name: scale-config
+{{ if .Values.hdfs.pvcClass }}            
+  volumeClaimTemplates:
+    - metadata:
+        name: dfs
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: {{ .Values.hdfs.pvcClass }}
+        resources:
+          requests:
+            storage: {{ .Values.hdfs.nn.size }}
+{{ end }}
+{{ end }}
