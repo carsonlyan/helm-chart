@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-    name: scale-config
-data: 
-{{ range $path, $_ := .Files.Glob "artifacts/*" }}
-{{ base $path | indent 4 }}: |-
-{{ $.Files.Get $path | indent 8}}
-{{ end }}
