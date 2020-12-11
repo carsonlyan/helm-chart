@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: admin
+spec:
+  type: ClusterIP      
+  selector:
+    component: admin
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 5000
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: admin
+spec:
+  serviceName: admin
+  replicas: 1
+  selector:
+    matchLabels:
+      component: admin  
+  template:
+    metadata:
+      labels:
+        component: admin
+    spec:
+      terminationGracePeriodSeconds: 0
+      tolerations:
+        - key: scale
+          operator: Exists
+          effect: NoSchedule      
+{{ if .Values.nodeGroupLabel }}
+      nodeSelector:
+        {{ .Values.nodeGroupLabel }}: core
+{{ end }}
+      imagePullSecrets:
+      - name: {{ .Values.registry.secret.name }}      
+      containers:
+      - name: scale-admin
+        image: {{ .Values.registry.repository }}/{{ .Values.imageAdmin }}:{{ .Values.imageTag }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        env:
+        - name: SCALE_DOMAIN
+          value: {{ .Values.ingress.domain }}        
+        ports:
+        - containerPort: 5000
+{{ if .Values.defineResources }}        
+        resources:
+          requests:
+            memory: "1024Mi"
+            cpu: "900m"
+          limits:
+            # memory: "4096Mi"
+            cpu: "2000m"
+{{ end }}

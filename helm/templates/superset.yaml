@@ -1,0 +1,176 @@
+{{ if .Values.components.superset }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: superset-config
+  labels:
+    component: superset
+data:
+  init_superset.sh: |-
+    sleep 5
+    /usr/local/bin/superset-init --username admin --firstname admin --lastname user --email admin@fab.org --password admin
+    gunicorn "superset.app:create_app()"
+  superset_config.py: |-
+    #---------------------------------------------------------
+    # Superset specific config
+    #---------------------------------------------------------
+    ROW_LIMIT = 5000
+    SUPERSET_WORKERS = 2
+
+    SUPERSET_WEBSERVER_PORT = 8088
+    #---------------------------------------------------------
+
+    #---------------------------------------------------------
+    # Flask App Builder configuration
+    #---------------------------------------------------------
+    # Your App secret key
+    SECRET_KEY = 'unsecuresecretkey'
+
+    # The SQLAlchemy connection string to your database backend
+    # This connection defines the path to the database that stores your
+    # superset metadata (slices, connections, tables, dashboards, ...).
+    # Note that the connection information to connect to the datasources
+    # you want to explore are managed directly in the web UI
+    SQLALCHEMY_DATABASE_URI = 'mysql://superset:superset@superset-0:3306/superset?charset=utf8mb4'
+
+    SQLALCHEMY_TRACK_MODIFICATIONS = True
+
+    # CACHE_CONFIG = {
+    #   'CACHE_TYPE': 'redis',
+    #   'CACHE_DEFAULT_TIMEOUT': 300,
+    #   'CACHE_KEY_PREFIX': 'superset_',
+    #   'CACHE_REDIS_HOST': 'localhost',
+    #   'CACHE_REDIS_PORT': 6379,
+    #   'CACHE_REDIS_DB': 1,
+
+    #   'CACHE_REDIS_URL': 'redis://localhost:6379/1'
+    # }
+
+    # Flask-WTF flag for CSRF
+    WTF_CSRF_ENABLED = True
+    # Add endpoints that need to be exempt from CSRF protection
+    WTF_CSRF_EXEMPT_LIST = []
+
+    # Set this API key to enable Mapbox visualizations
+    MAPBOX_API_KEY = ''
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: superset
+  labels:
+    component: superset
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8088
+    name: web
+  selector:
+    component: superset
+---
+apiVersion: apps/v1
+kind: StatefulSet 
+metadata:
+  name: superset
+spec:
+  serviceName: superset
+  replicas: 1
+  selector:
+    matchLabels:
+      component: superset  
+  template:
+    metadata:
+      labels:
+        component: superset
+    spec:
+      terminationGracePeriodSeconds: 0
+      tolerations:
+        - key: scale
+          operator: Exists
+          effect: NoSchedule          
+{{ if .Values.nodeGroupLabel }}
+      nodeSelector:
+        {{ .Values.nodeGroupLabel }}: core
+{{ end }}      
+      imagePullSecrets:
+      - name: {{ .Values.registry.secret.name }}      
+      containers:
+      - name: superset
+        image: {{ .Values.superset.image.registry }}/{{ .Values.superset.image.repository }}:0.37.0
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        command:
+          - /bin/bash
+          - /home/superset/init_superset.sh
+{{ if .Values.defineResources }}          
+        resources:
+          requests:
+            memory: "800Mi"
+            cpu: "1200m"
+{{ end }}            
+        # livenessProbe:
+        #   httpGet:
+        #     path: /health
+        #     port: 8088
+        #   initialDelaySeconds: 300
+        #   timeoutSeconds: 5
+        #   periodSeconds: 10
+        #   failureThreshold: 2
+        # readinessProbe:
+        #   httpGet:
+        #     path: /health
+        #     port: 8088
+        #   initialDelaySeconds: 30
+        #   timeoutSeconds: 5
+        #   periodSeconds: 10
+        #   failureThreshold: 2
+        volumeMounts:
+          - name: superset-config
+            mountPath: /home/superset
+      # - name: redis
+      #   image: redis
+      #   imagePullPolicy: {{ .Values.imagePullPolicy }}
+      #   volumeMounts:
+      #     - name: superset
+      #       mountPath: /data
+      #       subPath: redis
+      - name: mysql
+        image: {{ .Values.mariadb.image.registry }}/{{ .Values.mariadb.image.repository }}:{{ .Values.mariadb.image.version }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+{{ if .Values.defineResources }}
+        resources:
+          requests:
+            memory: "1024Mi"
+            cpu: "200m"
+          limits:
+            # memory: "4096Mi"
+            cpu: "2000m"
+{{ end }}            
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            value: superset
+          - name:  MYSQL_DATABASE
+            value: superset
+          - name: MYSQL_USER
+            value: superset
+          - name: MYSQL_PASSWORD
+            value: superset
+        volumeMounts:
+          - name: superset
+            mountPath: /var/lib/mysql
+            subPath: mysql
+      volumes:
+        - name: superset-config
+          configMap: 
+            name: superset-config
+{{ if .Values.superset.pv.class }}
+  volumeClaimTemplates:
+    - metadata:
+        name: superset
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: {{ .Values.superset.pv.class }}
+        resources:
+          requests:
+            storage: {{ .Values.superset.pv.sizeDb }}
+{{ end }}        
+{{ end }}

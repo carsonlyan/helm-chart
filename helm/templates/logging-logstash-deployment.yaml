@@ -1,0 +1,98 @@
+{{ if .Values.components.logging }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-configmap
+data:
+  logstash.yml: |
+    http.host: "0.0.0.0"
+    path.config: /usr/share/logstash/pipeline
+  logstash.conf: |
+    # all input will come from filebeat, no local logs
+    input {
+      beats {
+        port => 5044
+      }
+    }
+    filter {
+      if [message] =~ /^\{.*\}$/ {
+        json {
+          source => "message"
+        }
+      }
+      if [ClientHost] {
+        geoip {
+          source => "ClientHost"
+        }
+      }
+    }
+    output {
+        elasticsearch {
+            hosts => [ "elasticsearch-logging:9200" ]
+            index => "filebeat-7.5.1-%{+yyyy.MM.dd}"
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logstash-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: logstash
+  template:
+    metadata:
+      labels:
+        app: logstash
+    spec:
+      tolerations:
+        - key: scale
+          operator: Exists
+          effect: NoSchedule        
+{{ if .Values.nodeGroupLabel }}
+      nodeSelector:
+        {{ .Values.nodeGroupLabel }}: logging
+{{ end }}
+{{ if .Values.registry.publicImagesSecretNeeded }}
+      imagePullSecrets:
+      - name: {{ .Values.registry.secret.name }}
+{{ end }}      
+      containers:
+      - name: logstash
+        image: {{ .Values.logstash.image.registry }}/{{ .Values.logstash.image.repository }}:{{ .Values.logstash.image.version }}
+        ports:
+        - containerPort: 5044
+        volumeMounts:
+          - name: config-volume
+            mountPath: /usr/share/logstash/config
+          - name: logstash-pipeline-volume
+            mountPath: /usr/share/logstash/pipeline
+      volumes:
+      - name: config-volume
+        configMap:
+          name: logstash-configmap
+          items:
+            - key: logstash.yml
+              path: logstash.yml
+      - name: logstash-pipeline-volume
+        configMap:
+          name: logstash-configmap
+          items:
+            - key: logstash.conf
+              path: logstash.conf
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: logstash-service
+spec:
+  selector:
+    app: logstash
+  ports:
+  - protocol: TCP
+    port: 5044
+    targetPort: 5044
+  type: ClusterIP
+{{ end }}
