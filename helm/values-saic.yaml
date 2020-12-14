@@ -14,12 +14,12 @@ components:
   dnsAutoScaler: false
 
 registry:
-  url: https://index.docker.io/v1/
-  repository: registry.nj-prod-dce.saicstack.com/saiciaas
+  url: https://cr.console.aliyun.com/repository/cn-hangzhou/msc-software/
+  repository: registry.cn-hangzhou.aliyuncs.com/msc-software
   secret:
     name: scale-registry
-    user: mscsoftware
-    password: rTddm6XSu
+    user: kaycloudtest
+    password: likai625
 
 ingress:
   domain: local.scale-hexagon.com
@@ -63,13 +63,13 @@ ingress:
   whitelist: 192.168.39.1/32 
 
 openId:
-  url: http://10.135.3.9:30080/auth/realms/Local
+  url: http://10.135.3.9:30080/auth/realms/VTDScale
   clientId: gatekeeper
   clientSecret: 6754a1c3-8de5-4dfb-9c54-d047711525d8
   encryptionKey: vGcLt8ZUdPX5fXhtLZaPHZkGWHZrT6aa
   group: my-app
 
-imageTag : v1
+imageTag : 0.1.2-172cd576
 imagePullPolicy: IfNotPresent
 
 imageAdmin: scale-admin
