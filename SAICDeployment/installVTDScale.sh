@@ -37,7 +37,7 @@ fi
 
 if [[ -z ${tag} ]]; then
   echo "tag is empty. set with default."
-  tag="0.1.2-172cd576"
+  tag="latest"
 fi
 
 if [[ ${applyCert} == "true" ]];then
@@ -51,7 +51,6 @@ if [[ ${setSc} == "true" ]];then
 fi
 
 echo 'add helm Chart Dependencies'
-sudo -i
 cd $helmDir
 helm repo add bitnami https://charts.bitnami.com/bitnami
 helm dependency update
