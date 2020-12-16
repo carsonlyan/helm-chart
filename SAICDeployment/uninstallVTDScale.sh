@@ -1,7 +1,7 @@
 #!/bin/bash
 
 clearPVC(){
-  for pvc in `kubectl get pvc -o name`; do
+  for pvc in `kubectl get pvc -o name -n vtd`; do
     name=${pvc#*/}
     if [[ "$name" != "my-release-keycloak" ]]; then
       kubectl delete pvc $name
@@ -13,7 +13,7 @@ clearPVC(){
 }
 
 source="statefulsets,daemonsets,replicasets,services,deployments,pods,rc,ingresses,configmaps"
-sudo -i && helm  -n default uninstall scale && kubectl -n default delete ${source} --all --grace-period=0 --force
+helm  -n vtd uninstall scale && kubectl -n default delete ${source} --all --grace-period=0 --force
 exitCode=$?
 if [[ $1 == "pvc" ]];then
   clearPVC
