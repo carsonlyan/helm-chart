@@ -24,7 +24,7 @@ if [[ -z ${tag} ]]; then
 fi
 
 if [[ -z ${helmDir} ]]; then
-  helmDir=$(pwd)
+  helmDir="/home/appuser/vtd-scale/helm"
 fi
 echo 'upgrade scale'
 cd $helmDir
