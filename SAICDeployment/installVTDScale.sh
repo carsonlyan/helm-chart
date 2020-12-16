@@ -26,13 +26,8 @@ while [[ $# -ge 1 ]]; do
     esac
 done
 
-if [[ ${helmDir} == "." ]]; then
+if [[ -z ${helmDir} ]]; then
   helmDir=$(pwd)
-fi
-
-if [[ ! -d "${helmDir}" ]]; then
-  echo "${helmDir} does not exist, directly exit with 1."
-  exit 1
 fi
 
 if [[ -z ${tag} ]]; then
