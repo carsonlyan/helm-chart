@@ -15,8 +15,12 @@ while [[ $# -ge 1 ]]; do
 			applyCert="true"
 			shift
 			;;
-		-s|--setSc )
-			setSc="true"
+		-s|--sc )
+			sc="true"
+			shift
+			;;
+		-d|--dependency )
+			dependency="true"
 			shift
 			;;
 		* )
@@ -35,23 +39,25 @@ if [[ -z ${tag} ]]; then
   tag="latest"
 fi
 
-if [[ ${applyCert} == "true" ]];then
+if [[ ${applyCert} == "true" ]]; then
   echo 'apply cert-manager'
   kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v0.12.0/cert-manager.yaml
 fi
 
-if [[ ${setSc} == "true" ]];then
+if [[ ${sc} == "true" ]]; then
   echo 'Define default RWO storage class, csi-rbd-sc on SAIC-Test'
   kubectl patch storageclass csi-rbd-sc -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
 fi
 
-echo 'add helm Chart Dependencies'
 cd $helmDir
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm dependency update
+if [[ ${dependency} == "true" ]]; then
+  echo 'add helm Chart Dependencies'
+  helm repo add bitnami https://charts.bitnami.com/bitnami
+  helm dependency update
+fi
 
 echo 'install scale using helm'
-helm -n vtd install scale . --set imageTag=$tag
+helm -n vtd install scale -f values-saic.yaml . --set imageTag=$tag
 
 echo 'installation complete'
 exit 0
