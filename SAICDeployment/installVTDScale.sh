@@ -27,7 +27,7 @@ while [[ $# -ge 1 ]]; do
 done
 
 if [[ -z ${helmDir} ]]; then
-  helmDir=$(pwd)
+  helmDir="/home/appuser/vtd-scale/helm"
 fi
 
 if [[ -z ${tag} ]]; then
