@@ -2,7 +2,6 @@ kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
   name: my-release-keycloak
-  namespace: default
   labels:
     app: keycloak
     release: my-release
