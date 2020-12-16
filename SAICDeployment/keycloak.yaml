@@ -2,7 +2,6 @@ kind: Deployment
 apiVersion: apps/v1
 metadata:
   name: my-release-keycloak
-  namespace: default
   labels:
     app: keycloak
     release: my-release
@@ -48,7 +47,6 @@ kind: Service
 apiVersion: v1
 metadata:
   name: my-release-keycloak
-  namespace: default
 spec:
   ports:
     - name: http

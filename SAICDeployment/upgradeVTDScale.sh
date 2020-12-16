@@ -1,12 +1,34 @@
 #!/bin/bash
 
-imageTag=0.1.2-172cd576 
-vtdScaleFolder=/home/appuser/vtd-scale/helm
+set -e
 
+while [[ $# -ge 1 ]]; do
+	case $1 in
+		-t|--tag )
+			tag=$2
+			shift 2
+			;;
+		-h|--helmDir )
+			helmDir=$2
+			shift 2
+			;;
+		* )
+			echo "invalid argument:$1"
+			shift
+			;;
+    esac
+done
+
+if [[ -z ${tag} ]]; then
+  imageTag="latest"
+fi
+
+if [[ -z ${helmDir} ]]; then
+  helmDir="/home/appuser/vtd-scale/helm"
+fi
 echo 'upgrade scale'
-sudo -i
-cd $vtdScaleFolder
-helm -n default upgrade scale . --set imageTag=$imageTag
+cd $helmDir
+helm -n vtd upgrade scale . --set imageTag=$tag
 
 echo 'upgrade scale complete'
 exit
