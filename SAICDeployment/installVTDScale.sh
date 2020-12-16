@@ -56,7 +56,7 @@ helm repo add bitnami https://charts.bitnami.com/bitnami
 helm dependency update
 
 echo 'install scale using helm'
-helm -n default install scale . --set imageTag=$tag
+helm -n vtd install scale . --set imageTag=$tag
 
 echo 'installation complete'
 exit 0
