@@ -13,7 +13,7 @@ clearPVC(){
 }
 
 source="statefulsets,daemonsets,replicasets,services,deployments,pods,rc,ingresses,configmaps"
-helm  -n vtd uninstall scale && kubectl -n default delete ${source} --all --grace-period=0 --force
+helm  -n vtd uninstall scale && kubectl -n vtd delete ${source} --all --grace-period=0 --force
 exitCode=$?
 if [[ $1 == "pvc" ]];then
   clearPVC
