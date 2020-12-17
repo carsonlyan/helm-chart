@@ -4,7 +4,7 @@ clearPVC(){
   for pvc in `kubectl get pvc -o name -n vtd`; do
     name=${pvc#*/}
     if [[ "$name" != "my-release-keycloak" ]]; then
-      kubectl delete pvc $name
+      kubectl -n vtd delete pvc $name
     fi
   done
 }
