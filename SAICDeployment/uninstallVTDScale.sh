@@ -7,9 +7,6 @@ clearPVC(){
       kubectl delete pvc $name
     fi
   done
-  if [[ $? == 0 ]];then
-    kubectl delete pv --all
-  fi
 }
 
 source="statefulsets,daemonsets,replicasets,services,deployments,pods,rc,ingresses,configmaps"
