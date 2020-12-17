@@ -60,12 +60,12 @@ ingress:
   # kubectl annotate ingress/scale-ingress nginx.ingress.kubernetes.io/whitelist-source-range=24.20.53.58/32 --overwrite
   # kubectl annotate ingress/scale-ingress-hdfs nginx.ingress.kubernetes.io/whitelist-source-range=24.20.53.58/32 --overwrite  
   # if you get a 403, try getting logs from nginx-ingress-controller
-  whitelist: 192.168.39.1/32 
+  # whitelist: 192.168.39.1/32 
 
 openId:
-  url: http://10.135.3.9:30080/auth/realms/VTDScale
+  url: http://10.135.3.9:30090/auth/realms/VTDScale
   clientId: gatekeeper
-  clientSecret: 6754a1c3-8de5-4dfb-9c54-d047711525d8
+  clientSecret: 82ae4e3a-e696-4564-a4b2-61103e129e51
   encryptionKey: vGcLt8ZUdPX5fXhtLZaPHZkGWHZrT6aa
   group: my-app
 
@@ -201,6 +201,9 @@ superset:
     repository: amancevice/superset
     version: 0.37.0
 
+licensing:
+  key: unknown
+  clusterId: unknown
 
 # nodeSelector and tolerations for kafka and zookeeper must use defaults here
 # be updated for Azure and AWS in build.gradle just lilke kafka.global.imageRegistry

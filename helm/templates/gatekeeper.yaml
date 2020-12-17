@@ -52,7 +52,7 @@ spec:
   selector:
     app: gatekeeper
   type: ClusterIP
-{{ 9 }}  
+{{ end }}  
 ---
 apiVersion: apps/v1
 kind: Deployment
