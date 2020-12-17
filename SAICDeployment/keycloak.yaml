@@ -18,10 +18,6 @@ spec:
         app: keycloak
         release: my-release
     spec:
-      tolerations: 
-        - key: "vtd-scale-9"
-          operator: "Exists"
-          effect: "NoSchedule"
       volumes:
         - name: data
           persistentVolumeClaim:
@@ -42,6 +38,8 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /opt/jboss/keycloak/standalone/data
+      nodeSelector:
+          agentType: core
 ---             
 kind: Service
 apiVersion: v1
@@ -53,7 +51,7 @@ spec:
       protocol: TCP
       port: 30040
       targetPort: 8080
-      nodePort: 30080
+      nodePort: 30090
   selector:
     app: keycloak
     release: my-release
@@ -63,7 +61,6 @@ kind: Ingress
 apiVersion: extensions/v1beta1
 metadata:
   name: my-release-keycloak
-  namespace: default
   labels:
     app: keycloak
     release: my-release
