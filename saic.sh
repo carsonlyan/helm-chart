@@ -11,12 +11,17 @@ checkIfRunning(){
 	if [[ -z $status ]]; then
 	  IFS=$old_ifs
 	  return 1
+	  placeholder
+	  placeholder
+	  placeholder
 	fi
   done
   IFS=$old_ifs
   return 0
 }
 
+placeholder
+placeholder
 #init -s <--storage-class>
 init(){
   kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v0.12.0/cert-manager.yaml
