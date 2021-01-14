@@ -1,0 +1,225 @@
+kubernetesType: minikube # (aws|azure|minikube)
+
+# nodeGroupLabel:
+  
+defineResources: false
+
+components:
+  logging: true
+  git: false
+  gitea: false
+  jenkins: false
+  superset: true
+  hdfs: true
+  dnsAutoScaler: false
+
+registry:
+  url: 10.0.0.52:32000
+  repository: 10.0.0.52:32000
+  secret:
+    name: scale-registry
+    user: admin
+    password: fill-me-in
+
+ingress:
+  domain: local.scale-hexagon.com
+  tls:
+    enabled: true
+    email: changeme
+  services:
+    - name: admin
+      service: admin
+      port: 80
+    - name: api
+      service: scale-api
+      port: 8080      
+    - name: spark
+      service: sparkmaster
+      port: 8080
+    - name: jupyter
+      service: jupyter
+      port: 8000
+    - name: livy
+      service: livy
+      port: 8998
+    - name: logs
+      service: kibana-logging
+      port: 5601
+    - name: jenkins
+      service: jenkins
+      port: 8080
+    - name: superset
+      service: superset
+      port: 8088
+    - name: gitea
+      service: gitea
+      port: 3000    
+
+  # auth: 
+  #   message: MSC Internal Only
+  #   value: scale:$apr1$vMBm2rHD$XNucU3s559l2Lw4s0Z5pV. # created with: htpasswd -nb scale dev
+  
+  # to change at runtime, 
+  # kubectl annotate ingress/scale-ingress nginx.ingress.kubernetes.io/whitelist-source-range=24.20.53.58/32 --overwrite
+  # kubectl annotate ingress/scale-ingress-hdfs nginx.ingress.kubernetes.io/whitelist-source-range=24.20.53.58/32 --overwrite  
+  # if you get a 403, try getting logs from nginx-ingress-controller
+  whitelist: 192.168.39.1/32 
+
+openId:
+  url: https://scale-auth.azurewebsites.net/auth/realms/master
+  clientId: scale
+  clientSecret: b1a6d557-2adf-482a-bf32-fb00ef9a4cce
+  encryptionKey: vGcLt8ZUdPX5fXhtLZaPHZkGWHZrT6aa
+  group: cluster-dev
+
+imageTag : 0.1.0.SNAPSHOT-HUF
+imagePullPolicy: Always
+
+imageAdmin: scale-admin
+imageCollector: scale-collector
+imageDemodataAdams: scale-demodata-adams
+imageDemodataVtd: scale-demodata
+imageGit: scale-git
+imageJenkins: scale-jenkins
+imageScaleApi: scale-api
+imageScaleServices: scale-services
+imageSparkCommon: scale-spark
+
+jenkins:
+  pv:
+    size: 1G
+    # class: standard
+
+jupyter:
+  pv:
+    size: 1G
+    class: standard
+
+hdfs:
+  nfsIP: 10.96.2.2
+  # pvcClass: standard 
+  
+  dn:
+    scale: 3
+    size: 1G
+  nn:
+    size: 100M
+
+apm:
+  image:
+    registry: docker.elastic.co
+    repository: apm/apm-server
+    version: 7.5.1
+
+curator:
+  image:
+    registry: docker.io
+    repository: library/python
+    version: 3.6-alpine
+
+elasticsearch:
+  pv:
+    # size: 100G
+    # class: default
+  image:
+    registry: docker.elastic.co
+    repository: elasticsearch/elasticsearch
+    version: 7.5.1
+
+alpine:
+  image:
+    registry: docker.io
+    repository: library/alpine
+    version: 3.6    
+
+filebeat:
+  image:
+    registry: docker.elastic.co
+    repository: beats/filebeat
+    version: 7.5.1
+
+gatekeeper:
+  image:
+    registry: docker.io
+    repository: carlosedp/keycloak-gatekeeper
+    version: v9.0.0
+
+kibana:
+  image:
+    registry: docker.elastic.co
+    repository: kibana/kibana
+    version: 7.5.1
+
+kubeStateMetrics:
+  image:
+    registry: quay.io
+    repository: coreos/kube-state-metrics
+    version: 1.9.7
+
+ingressController:
+  image:
+    registry: quay.io
+    repository: kubernetes-ingress-controller/nginx-ingress-controller
+    version: master
+
+logstash:
+  image:
+    registry: docker.elastic.co
+    repository: logstash/logstash
+    version: 7.5.1
+
+metricbeat:
+  image:
+    registry: docker.elastic.co
+    repository: beats/metricbeat  
+    version: 7.5.1
+
+gitea:
+  pv:
+    sizeDb: 1G
+    sizeData: 1G
+    # class: standard
+  image:
+    registry: docker.io
+    repository: gitea/gitea
+    version: 1.8.3
+
+mariadb:
+  image:
+    registry: docker.io
+    repository: library/mariadb    
+    version: 10
+
+dnsAutoScaler:
+  image:
+    registry: k8s.gcr.io
+    repository: cluster-proportional-autoscaler-amd64
+    version: 1.6.0
+
+superset:
+  pv:
+    sizeDb: 1G
+    class: standard
+  image:
+    registry: docker.io
+    repository: amancevice/superset
+    version: 0.37.0
+
+kafka:
+  global:
+    imageRegistry: docker.io
+    imagePullSecrets: []
+  kafka:
+    fullname: kafka
+  replicaCount: 1
+  deleteTopicEnable: true
+  persistence:
+    enabled: false
+  zookeeper:
+    persistence:
+      enabled: false
+  logRetentionHours: 2
+
+licensing:
+  key: unknown
+  clusterId: unknown

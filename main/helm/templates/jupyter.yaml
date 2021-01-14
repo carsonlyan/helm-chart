@@ -1,0 +1,179 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: jupyter
+  labels:
+    component: jupyter
+    workerGroup: main
+spec:
+  type: ClusterIP
+  ports:
+  - port: 22
+    name: sftp
+  - port: 8000
+    name: web
+  - port: 8998
+    name: livy
+  - port: 10000
+    name: thrift    
+  selector:
+    component: jupyter
+    workerGroup: main
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: jupyter
+spec:
+  serviceName: jupyter
+  replicas: 1
+  selector:
+    matchLabels:
+      component: jupyter
+      workerGroup: main
+  template:
+    metadata:
+      labels:
+        component: jupyter
+        workerGroup: main
+    spec:
+      terminationGracePeriodSeconds: 0
+      tolerations:
+      - key: scale
+        operator: Exists
+        effect: NoSchedule          
+{{ if .Values.nodeGroupLabel }}
+      nodeSelector:
+        {{ .Values.nodeGroupLabel }}: core
+{{ end }}      
+      imagePullSecrets:
+      - name: {{ .Values.registry.secret.name }}    
+      containers:
+      - name: jupyter
+        image: {{ .Values.registry.repository }}/{{ .Values.imageSparkCommon }}:{{ .Values.imageTag }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        command:
+        - /bin/bash
+        - /tmp/hadoop-config/bootstrap.sh
+        - -d
+        env:
+        - name: SCALE_DOMAIN
+          value: {{ .Values.ingress.domain }}
+        - name: MASTER
+          value: spark://sparkmaster:7077
+{{ if .Values.openId }}
+        - name: OIDC_URL
+          value: {{ .Values.openId.url }}
+        - name: OIDC_CLIENT_ID
+          value: {{ .Values.openId.clientId }}
+        - name: OIDC_CLIENT_SECRET
+          value: {{ .Values.openId.clientSecret }}
+        - name: OAUTH2_AUTHORIZE_URL
+          value: {{ .Values.openId.url }}/protocol/openid-connect/auth
+        - name: OAUTH2_TOKEN_URL
+          value: {{ .Values.openId.url }}/protocol/openid-connect/token          
+{{ end }}          
+{{ if .Values.components.logging }}
+        - name: ELASTIC_APM_SERVER
+          value: http://apm-server:8200
+{{ end }}         
+{{ if .Values.defineResources }}             
+        resources:
+          requests:
+            memory: "1024Mi"
+            cpu: "1500m"
+          limits:
+            # memory: "4096Mi"
+            cpu: "2000m"
+{{ end }}
+        volumeMounts:
+        - name: hdfs
+          mountPath: /hdfs
+        - name: scale-config
+          mountPath: /tmp/hadoop-config
+        - name: storage
+          mountPath: /storage
+          subPath: storage         
+        - name: jupyter-user
+          mountPath: /home
+        - mountPath: /etc
+          name: jupyter-user
+          subPath: root/etc
+      initContainers:
+      - name: demodata-adams
+        image: {{ .Values.registry.repository }}/{{ .Values.imageDemodataAdams }}:{{ .Values.imageTag }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        command: 
+        - /bin/sh
+        - -c
+        - if [[ ! -d /home/admin/data/adams || /demodata -nt /home/admin/data/adams/demodata ]]; then echo copy && rm -fr /home/admin/data/adams && mkdir -p /home/admin/data/adams && cp -rp /demodata /home/admin/data/adams; else echo nocopy; fi
+        volumeMounts:
+        - name: jupyter-user
+          mountPath: /home
+      - name: demodata-vtd
+        image: {{ .Values.registry.repository }}/{{ .Values.imageDemodataVtd }}:{{ .Values.imageTag }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        command:
+        - /bin/sh
+        - -c
+        - if [[ ! -d /home/admin/data/vtd || /demodata -nt /home/admin/data/vtd/demodata ]]; then echo copy && rm -fr /home/admin/data/vtd && mkdir -p /home/admin/data/vtd && cp -rp /demodata /testdata /home/admin/data/vtd; else echo nocopy; fi
+        volumeMounts:
+        - name: jupyter-user
+          mountPath: /home
+      - name: jupyter-init
+        image: {{ .Values.registry.repository }}/{{ .Values.imageSparkCommon }}:{{ .Values.imageTag }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        command:
+        - /bin/bash
+        - /tmp/hadoop-config/bootstrap.sh
+        env:
+        - name: BOOTSTRAP
+          value: jupyter-init
+        volumeMounts:
+        - name: jupyter-user
+          mountPath: /home-init
+        - name: hdfs
+          mountPath: /hdfs
+        - name: scale-config
+          mountPath: /tmp/hadoop-config          
+      volumes:
+      - name: scale-config
+        configMap:
+          name: scale-config
+      - name: hdfs
+        persistentVolumeClaim:
+          claimName: hdfs
+      - name: storage
+{{ if eq .Values.kubernetesType "azure" }}
+        azureFile:
+          secretName: scale-storage-secret
+          shareName: files
+          readOnly: false          
+{{ else if eq .Values.kubernetesType "aws" }}
+        persistentVolumeClaim:
+          claimName: efs-storage-claim
+{{ else if eq .Values.kubernetesType "saic" }}
+        persistentVolumeClaim:
+          claimName: saic-storage-claim
+{{ else if eq .Values.kubernetesType "minikube" }}          
+        hostPath:
+          path: /data/scale-storage
+          type: DirectoryOrCreate
+      - name: jupyter-user
+        hostPath:
+          path: /data/scale-user
+          type: DirectoryOrCreate
+{{ else }}
+        emptyDir: {}
+{{ end }}
+{{ if .Values.jupyter.pv.class }}
+  volumeClaimTemplates:
+    - metadata:
+        name: jupyter-user
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: {{ .Values.jupyter.pv.class }}
+        resources:
+          requests:
+            storage: {{ .Values.jupyter.pv.size }}
+{{ end }}        

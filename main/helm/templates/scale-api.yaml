@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: scale-api
+  labels:
+    component: scale-api
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    name: rest
+  selector:
+    component: scale-api
+---
+apiVersion: apps/v1
+kind: Deployment 
+metadata:
+  name: scale-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: scale-api
+  template:
+    metadata:
+      labels:
+        component: scale-api
+    spec:
+      terminationGracePeriodSeconds: 0
+      tolerations:
+        - key: scale
+          operator: Exists
+          effect: NoSchedule          
+{{ if .Values.nodeGroupLabel }}
+      nodeSelector:
+        {{ .Values.nodeGroupLabel }}: core
+{{ end }}
+      imagePullSecrets:
+      - name: {{ .Values.registry.secret.name }}
+      containers:
+      - name: scale-api
+        image: {{ .Values.registry.repository }}/{{ .Values.imageScaleApi }}:{{ .Values.imageTag }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        env:
+        - name: SCALE_DOMAIN
+          value: {{ .Values.ingress.domain }}
+{{ if .Values.defineResources }}
+        resources:
+          requests:
+            memory: "1024Mi"
+            cpu: "400m"
+          limits:
+            # memory: "4096Mi"
+            cpu: "2000m"
+{{ end }}
+        volumeMounts:
+        - name: hdfs
+          mountPath: /hdfs
+      volumes:
+      - name: hdfs
+        persistentVolumeClaim:
+          claimName: hdfs

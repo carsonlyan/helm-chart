@@ -1,0 +1,74 @@
+{{ if .Values.components.logging }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kibana-logging
+  labels:
+    k8s-app: kibana-logging
+    kubernetes.io/cluster-service: "true"
+    addonmanager.kubernetes.io/mode: Reconcile
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: kibana-logging
+  template:
+    metadata:
+      labels:
+        k8s-app: kibana-logging
+      annotations:
+        seccomp.security.alpha.kubernetes.io/pod: 'docker/default'
+    spec:
+      tolerations:
+        - key: scale
+          operator: Exists
+          effect: NoSchedule      
+{{ if .Values.nodeGroupLabel }}
+      nodeSelector:
+        {{ .Values.nodeGroupLabel }}: logging
+{{ end }}    
+      securityContext:
+        #capabilities.drop:[ALL]
+        runAsNonRoot: true
+        runAsUser: 1000 
+{{ if .Values.registry.publicImagesSecretNeeded }}
+      imagePullSecrets:
+      - name: {{ .Values.registry.secret.name }}
+{{ end }}      
+      containers:
+      - name: kibana-logging
+        image: {{ .Values.kibana.image.registry }}/{{ .Values.kibana.image.repository }}:{{ .Values.kibana.image.version }}
+{{ if .Values.defineResources }}                    
+        resources:
+          # need more cpu upon initialization, therefore burstable class
+          limits:
+            cpu: 2000m
+          requests:
+            cpu: 1500m
+{{ end }}            
+        env:
+          - name: ELASTICSEARCH_HOSTS
+            value: http://elasticsearch-logging:9200
+        ports:
+        - containerPort: 5601
+          name: ui
+          protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kibana-logging
+  labels:
+    k8s-app: kibana-logging
+    kubernetes.io/cluster-service: "true"
+    addonmanager.kubernetes.io/mode: Reconcile
+    kubernetes.io/name: "Kibana"
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5601
+    protocol: TCP
+    targetPort: ui
+  selector:
+    k8s-app: kibana-logging
+{{ end }}

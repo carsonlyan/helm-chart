@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: collector
+spec:
+  type: ClusterIP      
+  selector:
+    component: collector
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8089
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: collector
+spec:
+  serviceName: collector
+  replicas: 1
+  selector:
+    matchLabels:
+      component: collector  
+  template:
+    metadata:
+      labels:
+        component: collector
+    spec:
+      terminationGracePeriodSeconds: 0
+      tolerations:
+        - key: scale
+          operator: Exists
+          effect: NoSchedule      
+{{ if .Values.nodeGroupLabel }}
+      nodeSelector:
+        {{ .Values.nodeGroupLabel }}: core
+{{ end }}
+      imagePullSecrets:
+      - name: {{ .Values.registry.secret.name }}      
+      containers:
+      - name: scale-collector
+        image: {{ .Values.registry.repository }}/{{ .Values.imageCollector }}:{{ .Values.imageTag }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        env:
+        - name: scale.cluster-id
+          valueFrom:
+            secretKeyRef:
+              name: scale-license
+              key: clusterId
+        - name: scale.license-key
+          valueFrom:
+            secretKeyRef:
+              name: scale-license
+              key: licenseKey
+        ports:
+        - containerPort: 5000
+{{ if .Values.defineResources }}        
+        resources:
+          requests:
+            memory: "1024Mi"
+            cpu: "900m"
+          limits:
+            # memory: "4096Mi"
+            cpu: "2000m"
+{{ end }}
+{{ if .Values.licensing }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: scale-license
+type: Opaque
+data:
+  licenseKey: {{ .Values.licensing.key | b64enc | quote }}
+  clusterId: {{ .Values.licensing.clusterId | b64enc | quote }}
+{{- end }}
