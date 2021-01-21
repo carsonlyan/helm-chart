@@ -19,7 +19,7 @@ if [[ -z ${namespace} ]]; then
   namespace="default"
 fi
 
-keycloakFolder=./keycloak
+keycloakFolder=./Keycloak
 
 echo 'install keycloak'
 cd $keycloakFolder

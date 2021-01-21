@@ -51,8 +51,9 @@ install(){
 #uninstall -n <namespace>
 uninstall(){
   namespace=$1
-  resources="statefulsets,daemonsets,replicasets,services,deployments,pods,rc,ingresses,configmaps"
-  helm  -n ${namespace} uninstall scale && kubectl -n ${namespace} delete ${resources} --all --grace-period=0 --force
+  #resources="statefulsets,daemonsets,replicasets,services,deployments,pods,rc,ingresses,configmaps"
+  #helm  -n ${namespace} uninstall scale && kubectl -n ${namespace} delete ${resources} --all --grace-period=0 --force
+  helm  -n ${namespace} uninstall scale
   
   for pvc in `kubectl -n ${namespace} get pvc -o name`; do
     pvc_name=${pvc#*/}
@@ -173,4 +174,4 @@ else
   argument=(${namespace})
 fi
 
-$(${command} ${argument[$@]})
+${command} ${argument[$@]}
